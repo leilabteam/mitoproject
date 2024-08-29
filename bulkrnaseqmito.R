@@ -1,4 +1,4 @@
-## Introduction
+########Introduction
 This analysis of RNA-Seq was quality checked by FastQC 0.11.8/MultiQC 1.7 and 
 trimmed by Trimmomatic 0.39 for HEADCROP 10.
 After that, all samples were quantified by kallisto 0.46.0 with bias correction, 
