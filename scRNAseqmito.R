@@ -120,7 +120,7 @@ plot.height <- 1000
 
 reduction <- "umap"
 #data.combined <- RunUMAP(data.combined, dims = 1:pca_num)
-data.combined <- RunTSNE(data.combined, reduction = "harmony", dims = 1:10)
+data.combined <- RunUMAP(data.combined, reduction = "harmony", dims = 1:10)
 p1 <- DimPlot(data.combined, reduction = reduction, label = F)  
 p2 <- DimPlot(data.combined, reduction = reduction, label = TRUE)
 p3combined <- DimPlot(data.combined, reduction = reduction, split.by = "orig.ident", label = T)
@@ -191,6 +191,204 @@ for (i in 1:length(genelist)){
   ggsave(paste(genelist[i], 'umap.pdf', sep = '_'), width = 10, height = 4.6)
 }
 
+######## cell cycle analysis
+## Load required packages
+library(Seurat)
+library(tidyverse)
+library(dplyr)
+library(patchwork)
+library(multtest)
+
+# Define cell cycle genes for G2M, G1, and S phases
+G2Mgenecellcycle = c('SMED30009506','SMED30015678','SMED30006888','SMED30003246','SMED30014970','SMED30025245','SMED30004904','SMED30033670','SMED30015929','SMED30018221','SMED30004988','SMED30030198','SMED30033981','SMED30000949','SMED30025778','SMED30010251','SMED30022468','SMED30022580','SMED30011277','SMED30023082','SMED30019915','SMED30000277','SMED30033646','SMED30023953','SMED30016942','SMED30032426','SMED30030055','SMED30019616','SMED30027106','SMED30011934','SMED30033017','SMED30030505','SMED30006092','SMED30016301','SMED30011977','SMED30011091','SMED30024586','SMED30009683','SMED30010966','SMED30006356','SMED30019390','SMED30035314','SMED30012613','SMED30005609','SMED30024902','SMED30021702','SMED30033763','SMED30005185','SMED30004873','SMED30026475','SMED30010421','SMED30012777','SMED30019744','SMED30028681','SMED30023769','SMED30022293','SMED30026807','SMED30020865','SMED30006304','SMED30035063','SMED30029272','SMED30021639') %>% unique()
+
+g1genecellcycle = c('SMED30032563','SMED30001802','SMED30013808','SMED30034500','SMED30002663','SMED30010350','SMED30035785','SMED30028898','SMED30011050','SMED30033019','SMED30035929','SMED30025384','SMED30027428','SMED30016879','SMED30010205','SMED30024929','SMED30007715','SMED30000968','SMED30001916','SMED30028883','SMED30021545','SMED30033482','SMED30022027','SMED30025635','SMED30024446','SMED30023388','SMED30025126','SMED30020940','SMED30000740','SMED30035118','SMED30030413','SMED30031519','SMED30026593','SMED30006028','SMED30021490','SMED30014999','SMED30005488','SMED30027370','SMED30022293','SMED30026807','SMED30020865','SMED30006304','SMED30009429','SMED30034254','SMED30027052','SMED30005066','SMED30004207','SMED30004214','SMED30015762','SMED30016919','SMED30012240','SMED30008690','SMED30020865','SMED30015642','SMED30023769','SMED30022293','SMED30026807','SMED30020865','SMED30006304','SMED30009429','SMED30034254','SMED30027052','SMED30005066','SMED30004207','SMED30004214','SMED30015762','SMED30016919','SMED30012240','SMED30008690','SMED30020865','SMED30015642','SMED30023769','SMED30033566','SMED30023769','SMED30008884','SMED30035485','SMED30033583','SMED30020397','SMED30035424','SMED30035357','SMED30011055','SMED30012984','SMED30008787','SMED30018508','SMED30008579','SMED30027813','SMED30026358','SMED30008911','SMED30016919','SMED30015120','SMED30003738','SMED30018762','SMED30019873','SMED30005982','SMED30022344','SMED30006268') %>% unique()
+
+sgenecellcycle  = c('SMED30032563','SMED30022389','SMED30004470','SMED30000396','SMED30023821','SMED30029973','SMED30017135','SMED30020890','SMED30018837','SMED30010424','SMED30022437','SMED30021509','SMED30026247','SMED30010763','SMED30031773','SMED30034520','SMED30010517','SMED30033683','SMED30002348','SMED30025421','SMED30019555','SMED30017245','SMED30000541','SMED30006456','SMED30005215','SMED30003162') %>% unique()
+
+# Set default assay and normalize data
+DefaultAssay(data.combined) <- "RNA"
+data.combined <- NormalizeData(data.combined)
+
+# Cell cycle scoring
+data.combined <- CellCycleScoring(data.combined, s.features = sgenecellcycle,
+                                  g2m.features = G2Mgenecellcycle, set.ident = TRUE)
+
+# UMAP plots by 'orig.ident'
+DimPlot(data.combined, split.by = "orig.ident")
+
+# Subset for G2M phase and plot UMAP
+G2M <- subset(data.combined, subset = Phase == "G2M")
+DimPlot(G2M, group.by = "seurat_clusters", split.by = "orig.ident")
+
+# Subset for S phase and plot UMAP
+S <- subset(data.combined, subset = Phase == "S")
+DimPlot(S, group.by = "seurat_clusters", split.by = "orig.ident")
+
+# Subset for G1 phase and plot UMAP
+G1 <- subset(data.combined, subset = Phase == "G1")
+DimPlot(G1, group.by = "seurat_clusters", split.by = "orig.ident")
+
+##### Count and Calculate Proportions of Cell Types #####
+# Count number of cells per cell type and sample
+cell.number <- table(data.combined@active.ident, data.combined$orig.ident) %>% as.data.frame.array()
+write.csv(cell.number,  file = "cell.number.csv")
+
+# Convert to cell type proportions
+cell.ratio <- prop.table(table(data.combined@active.ident, data.combined$orig.ident), margin = 2) %>%
+  as.data.frame.array()
+write.csv(cell.ratio,  file = "cell.ratio.csv")
+
+##### Analysis for G2M Phase #####
+# Subset for G2M phase
+x = subset(data.combined, idents = "G2M")
+
+# Count number of cells per cluster and sample
+cell.number <- table(x$seurat_clusters, x$orig.ident) %>% as.data.frame.array()
+write.csv(cell.number,  file = "G2M.cell.number.csv")
+
+# Convert to cell type proportions
+cell.ratio <- prop.table(table(x$seurat_clusters, x$orig.ident), margin = 2) %>%
+  as.data.frame.array()
+write.csv(cell.ratio,  file = "G2M.cell.ratio.csv")
+
+# Save the modified Seurat object
+save(data.combined, file = "data.combined.RData")
+
+
+####### Subcluster analysis
+#!/usr/bin/env Rscript
+library(Seurat)
+
+setwd('E:/Rpractice/mitocodrial/2024mito/subcluster/topmarker/muscle')
+
+# Display the distribution of 'stim' values
+table(data.mitohigh_low@meta.data$stim)
+
+# Subset cells for C-high and A-low
+data.mitohigh_low <- subset(datacombined, subset = stim %in% c("C-high", "A-low"))
+
+# Subset cells for A-low
+data.mitolow <- subset(datacombined, subset = stim == "A-low")
+
+# Subset cells for clusters 2 and 3 (highlow23)
+data.mitohigh_low23 <- subset(data.mitohigh_low, subset = seurat_clusters %in% c(2, 3))
+head(data.mitohigh_low23@meta.data$seurat_clusters)
+dim(data.mitohigh_low23)
+
+# Subset cells for clusters 1, 5, 11 (highlowepider)
+data.mitohigh_lowepider <- subset(data.mitohigh_low, subset = seurat_clusters %in% c(1, 5, 11))
+head(data.mitohigh_lowepider@meta.data$seurat_clusters)
+dim(data.mitohigh_lowepider)
+
+# Subset cells for muscle clusters 0, 7, 8, 9, 10, 19
+data.mitohigh_lowmuscle <- subset(data.mitohigh_low, subset = seurat_clusters %in% c(0, 7, 8, 9, 10, 19))
+head(data.mitohigh_lowmuscle@meta.data$seurat_clusters)
+dim(data.mitohigh_lowmuscle)
+
+# Subset cells for low clusters 2 and 3
+data.mitolow23 <- subset(data.mitolow, subset = seurat_clusters %in% c(2, 3))
+head(data.mitolow23@meta.data$seurat_clusters)
+dim(data.mitolow23)
+
+# Subset cells for clusters 4, 15, 17, 20 (highlowcathepsin)
+data.mitohigh_lowcathepsin <- subset(data.mitohigh_low, subset = seurat_clusters %in% c(4, 15, 17, 20))
+head(data.mitohigh_lowcathepsin@meta.data$seurat_clusters)
+dim(data.mitohigh_lowcathepsin)
+
+# Subset cells for neuron clusters 18, 21 (highlowneuron)
+data.mitohigh_lowneuron <- subset(data.mitohigh_low, subset = seurat_clusters %in% c(18, 21))
+head(data.mitohigh_lowneuron@meta.data$seurat_clusters)
+dim(data.mitohigh_lowneuron)
+
+# Subset cells for intestine clusters 6, 13 (highlowintestine)
+data.mitohigh_lowintestine <- subset(data.mitohigh_low, subset = seurat_clusters %in% c(6, 13))
+head(data.mitohigh_lowintestine@meta.data$seurat_clusters)
+dim(data.mitohigh_lowintestine)
+
+# Subset cells for parenchymal clusters 12, 16, 22 (highlowparenchymal)
+data.mitohigh_lowparenchymal <- subset(data.mitohigh_low, subset = seurat_clusters %in% c(12, 16, 22))
+head(data.mitohigh_lowparenchymal@meta.data$seurat_clusters)
+dim(data.mitohigh_lowparenchymal)
+
+# Subset cells for protonephridia cluster 14 (highlowprotonephridia)
+data.mitohigh_lowprotonephridia <- subset(data.mitohigh_low, subset = seurat_clusters == 14)
+head(data.mitohigh_lowprotonephridia@meta.data$seurat_clusters)
+dim(data.mitohigh_lowprotonephridia)
+
+# Processing for clusters 2 and 3 (highlow23)
+data.mitohigh_low23 <- NormalizeData(data.mitohigh_low23) %>%
+        FindVariableFeatures() %>%
+        ScaleData() %>%
+        RunPCA()
+
+ElbowPlot(data.mitohigh_low23, ndims = 30)
+
+pc.num = 1:20
+data.mitohigh_low23 <- FindNeighbors(data.mitohigh_low23, dims = pc.num) %>%
+        FindClusters(resolution = 0.8) %>%
+        RunUMAP(dims = pc.num)
+
+# Processing for clusters 1, 5, 11 (highlowepider)
+data.mitohigh_lowepider <- NormalizeData(data.mitohigh_lowepider) %>%
+        FindVariableFeatures() %>%
+        ScaleData() %>%
+        RunPCA()
+
+ElbowPlot(data.mitohigh_lowepider, ndims = 30)
+
+pc.num = 1:20
+data.mitohigh_lowepider <- FindNeighbors(data.mitohigh_lowepider, dims = pc.num) %>%
+        FindClusters(resolution = 0.8) %>%
+        RunUMAP(dims = pc.num)
+
+# Processing for muscle clusters 0, 7, 8, 9, 10, 19 (muscle)
+data.mitohigh_lowmuscle <- NormalizeData(data.mitohigh_lowmuscle) %>%
+        FindVariableFeatures() %>%
+        ScaleData() %>%
+        RunPCA()
+
+ElbowPlot(data.mitohigh_lowmuscle, ndims = 30)
+
+pc.num = 1:20
+data.mitohigh_lowmuscle <- FindNeighbors(data.mitohigh_lowmuscle, dims = pc.num) %>%
+        FindClusters(resolution = 0.8) %>%
+        RunUMAP(dims = pc.num)
+
+# Processing for low clusters 2 and 3 (low23)
+data.mitolow23 <- NormalizeData(data.mitolow23) %>%
+        FindVariableFeatures() %>%
+        ScaleData() %>%
+        RunPCA()
+
+ElbowPlot(data.mitolow23, ndims = 30)
+
+pc.num = 1:20
+data.mitolow23 <- FindNeighbors(data.mitolow23, dims = pc.num) %>%
+        FindClusters(resolution = 0.8) %>%
+        RunUMAP(dims = pc.num)
+
+# Build cluster tree for muscle clusters
+data.mitohigh_lowmuscle <- FindClusters(data.mitohigh_lowmuscle, resolution = seq(0.1, 1, 0.1))
+data.mitohigh_lowmuscle <- BuildClusterTree(data.mitohigh_lowmuscle)
+
+##### Analysis for Cluster 2 #####
+# Subset for cluster 2
+c2 = subset(data.combined, subset = seurat_clusters == "2")
+
+# Count number of cells per phase and sample
+cell.number <- table(c2$Phase, c2$orig.ident) %>% as.data.frame.array()
+write.csv(cell.number,  file = "cluster2.cell.number.csv")
+
+# Convert to cell type proportions
+cell.ratio <- prop.table(table(c2$Phase, c2$orig.ident), margin = 2) %>%
+  as.data.frame.array()
+write.csv(cell.ratio,  file = "cluster2.cell.ratio.csv")
+
+# Save the modified Seurat object
+save(data.combined, file = "data.combined.RData")
+
+
 ######## average heatmap ######## Average Expression Heatmap
 
 library(ggtext)
@@ -230,35 +428,3 @@ Idents(sub_34) = 'type2'
 data.combined
 
 rm(list = c("umap.name", "p1", "p2", "p3", "p4", "p5", "p6"))
-
-getwd()
-# Check the distribution of nFeature and mtRNA to ensure they are reasonable
-```{r}
-# Plot the distribution of certain features
-reduction <- "tsne"
-# reduction <- "umap"
-if (reduction == "tsne") {
-  plot.x <- "tSNE_1"
-  plot.y <- "tSNE_2"
-} else {
-  plot.x <- "UMAP_1"
-  plot.y <- "UMAP_2"
-}
-library(methods)
-meta_matrix <- cbind(data.combined@reductions$tsne@cell.embeddings)
-meta_matrix <- cbind(meta_matrix, data.combined@meta.data)
-library("ggplot2")
-# Use ggplot2 to plot with colors distinguished by clusters
-# In ggplot2, !!sym(plot.x) can be used to call external variable names, which is not applicable in standard R.
-colnames(meta_matrix)
-
-# mtRNA meta_matrix
-g1 <- ggplot(meta_matrix, mapping = aes(x = !!sym(plot.x), y = !!sym(plot.y), colour = percent.mt)) +
-  geom_point(size = 0.4) +
-  theme_light() + scale_color_gradientn(colours = c("blue", "white", "red"))
-png("g1.png")
-pdf("g1.pdf")
-print(g1.pdf)
-print(g1)
-ggsave(g1, filename = "meta_matrix")
-dev.off()

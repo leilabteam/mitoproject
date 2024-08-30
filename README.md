@@ -34,6 +34,12 @@ The script visualizes the clustering results using UMAP plots and generates feat
 #Subset Analysis and Custom Plots
 The script allows for subsetting specific cell populations and creating custom plots, such as DotPlots and heatmaps, to visualize gene expression patterns in different conditions.
 
+#Cell Cycle Analysis
+Cell cycle analysis was performed to classify cells into different phases (G1, S, and G2M) based on the expression of phase-specific marker genes. This helps in understanding the cell cycle status and its impact on gene expression and cellular functions.
+
+#Subcluster Analysis 
+Added a description in the clustering and visualization section, explaining how subcluster analysis was conducted to identify and characterize distinct subpopulations within the main clusters.
+
 #Getting Started
 To use this code, clone the repository and navigate into each directory to run the scripts relevant to your analysis. Ensure you have all the necessary R packages and tools installed.
 
